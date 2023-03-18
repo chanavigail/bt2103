@@ -2,8 +2,8 @@
 
 <p> 
   A report analysing the Default of Credit Card Clients Dataset. 
-  We built many models in R to predict which clients would default on their credit card payments. 
-  These models include lm, glm, SVM, classification tree, random forest and neural network.  
+  We built models in R to predict which clients would default on their credit card payments and evaluated their performance. 
+  These models include lm, glm, SVM, classification tree, random forest and neural network. 
 </p>
 
 <p> 
