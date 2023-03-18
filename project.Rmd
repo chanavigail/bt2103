@@ -1,0 +1,459 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r load-libraries, message=F, warning=F}
+setwd("~/Downloads")
+library(ROCR)
+library(caret)
+library(mlbench)
+library(readr)
+library(dplyr)
+library(class)
+library(nnet)
+library(tree)
+library(ggplot2)
+library(NeuralNetTools)
+library(gridExtra)
+library(randomForest)
+library(e1071)
+library(leaps)
+library("Rmisc")
+library("corrplot")
+library(corrgram)
+card <- read_csv("card.csv")
+```
+
+
+```{r initialize, message=F, warning=F}
+data <- read.table("card.csv",sep=",",skip=2,header=FALSE) # remove the headers
+header <- scan("card.csv",sep=",",nlines=2,what=character()) # check the headers name
+```
+
+# Exploratory Data Analysis
+```{r exploratory, message=F, warning=F}
+### LIMIT BALANCE
+limit.bal.Q3 <- quantile(data$V2, .75) + 1.5 * IQR(data$V2)
+
+limit.bal.hist <- ggplot(data, 
+  aes(x = V2)) +
+  geom_histogram(binwidth = 100, colour = "black",
+                 fill = "white") +
+  geom_vline(aes(xintercept = limit.bal.Q3), 
+             colour = "#BB0000", linetype = "dashed") +
+  theme_minimal() +
+  labs(x = "Limit of Balance", y = "Observations count")
+
+limit.bal.scatter <- ggplot(data, 
+  aes(x = V1,
+      y = V2)) +
+  geom_point(shape = 1, position=position_jitter(height = 100)) +
+  geom_hline(aes(yintercept=limit.bal.Q3), 
+             colour="#BB0000", linetype="dashed") +
+  theme_minimal() +
+  labs(x = "Index", y = "Limit of Balance")
+
+grid.arrange(limit.bal.hist, limit.bal.scatter, ncol=2)
+
+### SEX
+plot7 = ggplot(data = data, aes(x = data[, "V3"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab("SEX") + ylab("Observations count")
+
+### EDUCATION
+plot8 = ggplot(data = data, aes(x = data[, "V4"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab("EDUCATION") + ylab("Observations count")
+
+### MARRIAGE
+plot9 = ggplot(data = data, aes(x = data[, "V5"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab("MARRIAGE") + ylab("Observations count")
+
+grid.arrange(plot7, plot8, plot9, ncol=3)
+
+### AGE
+boxplot(data$V6, ylab = "Age")
+
+### PAY 
+
+# PAY_0
+plot1 = ggplot(data = data, aes(x = data[, "V7"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab(paste0("Repayment status ", "V7")) + ylab("Observations count")
+
+# PAY_2
+plot2 =ggplot(data = data, aes(x = data[, "V8"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab(paste0("Repayment status ", "V8")) + ylab("Observations count")
+
+# PAY_3
+plot3 =ggplot(data = data, aes(x = data[, "V9"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab(paste0("Repayment status ", "V9")) + ylab("Observations count")
+
+# PAY_4
+plot4 =ggplot(data = data, aes(x = data[, "V10"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab(paste0("Repayment status ", "V10")) + ylab("Observations count")
+
+# PAY_5
+plot5 =ggplot(data = data, aes(x = data[, "V11"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab(paste0("Repayment status ", "V11")) + ylab("Observations count")
+
+# PAY_6
+plot6 =ggplot(data = data, aes(x = data[, "V12"])) + geom_bar(stat = "count") + 
+  theme_minimal() + xlab(paste0("Repayment status ", "V12")) + ylab("Observations count")
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, ncol=3)
+
+### BILL_AMT
+
+# BILL_AMT1
+plot10 = ggplot(data=data, aes(x = data[,13])) + geom_histogram() + 
+  xlab("Amount of bill amount in 9/2005 (TWD)")
+
+# BILL_AMT2
+plot11 = ggplot(data=data, aes(x = data[,14])) + geom_histogram() + 
+  xlab("Amount of bill amount in 8/2005 (TWD)")
+
+# BILL_AMT3
+plot12 = ggplot(data=data, aes(x = data[,15])) + geom_histogram() + 
+  xlab("Amount of bill amount in 7/2005 (TWD)")
+
+# BILL_AMT4
+plot13 = ggplot(data=data, aes(x = data[,16])) + geom_histogram() + 
+  xlab("Amount of bill amount in 6/2005 (TWD)")
+
+# BILL_AMT5
+plot14 = ggplot(data=data, aes(x = data[,17])) + geom_histogram() + 
+  xlab("Amount of bill amount in 5/2005 (TWD)")
+
+# BILL_AMT6
+plot15 = ggplot(data=data, aes(x = data[,18])) + geom_histogram() + 
+  xlab("Amount of bill amount in 4/2005 (TWD)")
+
+grid.arrange(plot10, plot11, plot12, plot13, plot14, plot15, ncol=2)
+
+### PAY_AMT
+
+# PAY_AMT1
+pay_1 = data$V19
+
+# PAY_AMT2
+pay_2 = data$V20
+
+# PAY_AMT3
+pay_3 = data$V21
+
+# PAY_AMT4
+pay_4 = data$V22
+
+# PAY_AMT5
+pay_5 = data$V23
+
+# PAY_AMT6
+pay_6 = data$V24
+
+par(mfrow=c(1,1))
+boxplot(pay_1, pay_2, pay_3, pay_4, pay_5, pay_6,
+main = "Box Plots for PAY AMT",
+ylab = "Amount of previous payment",
+names = c("September", "August", "July", "June", "May", "April"))
+```
+
+# Filter Data
+```{r filter, message=F, warning=F}
+cleaned_data = data %>% 
+  filter(V2 < 750000) %>%
+  filter(V4 != 5) %>%
+  filter(V4 != 6) %>%  
+  filter(V13 < 1000000) %>% 
+  filter(V14 < 1000000) %>%
+  filter(V15 < 1000000) %>%
+  filter(V16 < 1000000) %>% 
+  filter(V17 < 1000000) %>%
+  filter(V18 < 1000000) %>%
+  filter(V19 < 800000) %>% 
+  filter(V20 < 800000) %>% 
+  filter(V21 < 800000) %>%
+  filter(V22 < 800000) %>%
+  filter(V23 < 800000) %>%
+  filter(V24 < 800000)
+```
+
+# Data pre-processing
+```{r pre-process, message=F, warning=F}
+set.seed(1234)
+cleaned_data <- cleaned_data[,-1]
+n = length(cleaned_data$V24) 
+index <- 1:nrow(cleaned_data)
+testindex <- sample(index, trunc(n)/4)
+test.data <- cleaned_data[testindex,]
+train.data <- cleaned_data[-testindex,]
+```
+
+# Feature Selection
+```{r feature_select, message=F, warning=F}
+outforward <- regsubsets(V25 ~ V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 +
+  V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19 + V20 + V21 + V22 + V23 + V24, 
+data = train.data, method = "forward", nvmax = 24)
+Forward.summary <- summary(outforward)
+                   
+# Plot BIC of models with varying number of variables
+plot(Forward.summary$bic, xlab = "Number of Variables", ylab = "BIC", type = "l")
+bic_min = which.min(Forward.summary$bic) # 8-variable model is best
+points(bic_min, Forward.summary$bic[bic_min], col = "red", cex = 2, pch = 20)
+
+# Output the 8 selected variables
+which.max(Forward.summary$adjr2)
+names(train.data) [t(Forward.summary$which)[,which.min(Forward.summary$bic)]
+                   [2:length(train.data)]]
+```
+
+# Model Selection
+
+```{r model_select, message=F, warning=F}
+### LM
+
+# Use training set to train LM
+lm_model = lm(V25 ~ V5 + V6 + V7 + V8 + V9 + V13 + V19 + V20, data = train.data)
+
+# Use LM model to predict using testing set
+predlm_test = predict(lm_model, test.data)
+predlm = rep(0, nrow(test.data))
+predlm[predlm_test >= 0.5] = 1
+
+# Create confusion matrix
+test_confusion = table(pred = predlm, actual = test.data$V25)
+test_confusion
+
+# Evaluate model
+
+# Sensitivity: TP/TP+FP = TPR
+Sensitivity = test_confusion[2,2] / sum(test_confusion[2,])
+# Specificity: TN/TN+FN = TNR
+Specificity = test_confusion[1,1] / sum(test_confusion[1,])
+# Accuracy: (TP + TN)/all
+Accuracy = sum(test_confusion[1,1], test_confusion[2,2]) / sum(test_confusion)
+# Total Error Rate: (FP + FN)/all
+TotalError = sum(test_confusion[1,2],test_confusion[2,1]) / sum(test_confusion)
+measures_test = round(data.frame(Sensitivity, Specificity, Accuracy, TotalError),4)
+row.names(measures_test) = "LM"
+paste("The accuracy using Logistic regression is", Accuracy)
+
+### GLM
+fit.glm = glm(V25 ~ V5 + V6 + V7 + V8 + V9 + V13 + V19 + V20, 
+              data = train.data, family = binomial)
+
+# Predict 
+pred.prob = predict(fit.glm, test.data, type = "response")
+pred.glm = rep(0, length(pred.prob))
+pred.glm[pred.prob > 0.5] = 1
+pred.table = table(pred.glm, test.data$V25)
+pred.table
+# Sensitivity: TP/P = TPR
+Sensitivity = pred.table[1,1] / sum(pred.table[,1])
+# Specificity: TN/N = TNR
+Specificity = pred.table[2,2] / sum(pred.table[,2])
+# Accuracy: (TP + TN)/(P + N)
+Accuracy = sum(pred.table[1,1], pred.table[2,2]) / sum(pred.table[,])
+# Total Error Rate: (FP + FN)/(P + N)
+TotalError = sum(pred.table[1,2],pred.table[2,1]) / sum(pred.table[,])
+glm.Confusion = round(data.frame(Sensitivity, Specificity, Accuracy, TotalError),4)
+row.names(glm.Confusion) = "GLM"
+paste("The accuracy using Logistic regression is", Accuracy)
+
+### SVM
+svm.model <- svm(V25 ~ V5 + V6 + V7 + V8 + V9 + V13 + V19 + V20, 
+                 data = train.data,type="C-classification", kernel="linear")
+svm.model
+
+# Use SVM model to predict using testing set
+
+results_test <- predict(svm.model, test.data)
+svm_confusion <- table(pred=results_test,actual=test.data$V25)
+svm_confusion
+
+# Sensitivity: TP/TP+FP = TPR
+Sensitivity = svm_confusion[2,2] / sum(svm_confusion[2,])
+# Specificity: TN/TN+FN = TNR
+Specificity = svm_confusion[1,1] / sum(svm_confusion[1,])
+# Accuracy: (TP + TN)/all
+Accuracy = sum(svm_confusion[1,1], svm_confusion[2,2]) / sum(svm_confusion)
+# Total Error Rate: (FP + FN)/all
+TotalError = sum(svm_confusion[1,2],svm_confusion[2,1]) / sum(svm_confusion)
+measures_test = round(data.frame(Sensitivity, Specificity, Accuracy, TotalError),4)
+row.names(measures_test) = "LM"
+paste("The accuracy using SVM is", Accuracy)
+ 
+### Classification Tree
+
+# Tree
+# Use training set to train a decision tree
+fit.tree = tree(V25 ~ V5 + V6 + V7 + V8 + V9 + V13 + V19 + V20, train.data)
+
+# Plot tree
+plot(fit.tree)
+text(fit.tree, pretty = 0)
+title("Decision Tree of Credit Default (default.payment.next.month)")
+
+# Use Tree model to predict using testing set
+pred.prob.tree = predict(fit.tree, test.data)
+
+pred.tree = rep(0, length(pred.prob.tree))
+pred.tree[pred.prob.tree > 0.5] = 1
+pred.table.tree = table(pred.tree, test.data$V25)
+pred.table.tree
+
+# Evaluate model
+
+# Sensitivity: TP/P = TPR
+Sensitivity = pred.table.tree[1,1] / sum(pred.table.tree)
+# Specificity: TN/N = TNR
+Specificity = pred.table.tree[2,2] / sum(pred.table.tree[,2])
+
+# Accuracy: (TP + TN)/(P + N)
+Accuracy = sum(pred.table.tree[1,1], pred.table.tree[2,2]) / sum(pred.table.tree)
+
+# Total Error Rate: (FP + FN)/(P + N)
+TotalError = sum(pred.table.tree[1,2], pred.table.tree[2,1]) / sum(pred.table.tree[,])
+tree.Confusion = round(data.frame(Sensitivity, Specificity, Accuracy, TotalError),4)
+row.names(tree.Confusion) = "Tree"
+paste("The accuracy of Tree is", Accuracy)
+
+### Random Forest
+classifier.rf = randomForest(as.factor(V25) ~ V5 + V6 + V7 + V8 + V9 + V13 + V19 + V20, 
+                           data = train.data, ntree = 10)
+summary(classifier.rf)
+
+our.predict.rf = predict(classifier.rf, test.data)
+rf_confusion <- table(our.predict.rf, as.factor(test.data$V25)) 
+rf_confusion
+confusionMatrix(our.predict.rf, as.factor(test.data$V25)) 
+
+### Neural Network
+nn_model <- nnet(V25 ~ V5 + V6 + V7 + V8 + V9 + V13 + V19 + V20, train.data, 
+                 maxit=1000, size=20, entropy=TRUE)
+
+plotnet(nn_model)
+
+nn_prediction <- predict(nn_model, test.data)
+nn_binpred <- predict(nn_model, test.data,type=c("class"))
+
+test.v25 <- test.data$V25
+
+nn_confusion <- table(predicted = nn_binpred, actual = test.v25)
+
+nn_confusion
+
+nn_confusion[2,1]
+
+# Sensitivity: TP/TP+FP = TPR
+nn_Sensitivity = nn_confusion[2,2] / sum(nn_confusion[,2])
+# Specificity: TN/TN+FN = TNR
+nn_Specificity = nn_confusion[1,1] / sum(nn_confusion[,1])
+# Accuracy: (TP + TN)/all
+nn_Accuracy = sum(nn_confusion[2,2], nn_confusion[1,1]) / sum(nn_confusion)
+# Total Error Rate: (FP + FN)/all
+nn_TotalError = sum(nn_confusion[1,2], nn_confusion[2,1]) / sum(nn_confusion)
+measures_test = round(data.frame(nn_Sensitivity, nn_Specificity, 
+                                 nn_Accuracy, nn_TotalError),4)
+row.names(measures_test) = "Neural Network"
+paste("The accuracy using Logistic regression is", nn_Accuracy)
+
+### KNN
+# Model Evaluation - Choosing K
+# Calculate out of Sample error
+for (i in 6:50) {
+  classifier_knn <- knn(train = train.data,
+                        test = test.data,
+                        cl = train.data$V25,
+                        k = i)
+  misClassError <- mean(classifier_knn != test.data$V25)
+  print(paste("k = ", i, ': Accuracy =', 1-misClassError))
+}
+
+classifier_knn33 <- knn(train = train.data, test = test.data, cl = train.data$V25, k = 33)
+pred.table.knn = table(classifier_knn33, test.data$V25)
+pred.table.knn
+
+knn_Sensitivity = pred.table.knn[2,2] / sum(pred.table.knn[,2])
+# Specificity: TN/TN+FN = TNR
+knn_Specificity = pred.table.knn[1,1] / sum(pred.table.knn[,1])
+# Accuracy: (TP + TN)/all
+knn_Accuracy = sum(pred.table.knn[2,2], pred.table.knn[1,1]) / sum(pred.table.knn)
+# Total Error Rate: (FP + FN)/all
+knn_TotalError = sum(pred.table.knn[1,2], pred.table.knn[2,1]) / sum(pred.table.knn)
+measures_test = round(data.frame(knn_Sensitivity, knn_Specificity, 
+                                 knn_Accuracy, knn_TotalError),4)
+row.names(measures_test) = "Neural Network"
+paste("The accuracy using k-NN is", knn_Accuracy)
+
+gain_pred_lm <- prediction(c(predlm_test), test.data$V25)
+gain_pred_glm <- prediction(c(pred.glm), test.data$V25)
+gain_pred_tree <- prediction(c(pred.prob.tree), test.data$V25)
+svm_gain <- c(pred = results_test)
+gain_pred_svm <- prediction(as.numeric(svm_gain), as.numeric(test.data$V25))
+gain_pred_nn <- prediction(c(as.numeric(nn_binpred)), test.data$V25)
+gain_pred_rf = prediction(as.numeric(our.predict.rf), as.numeric(test.data$V25))
+gain_pred_knn <- prediction(c(as.numeric(as.character(classifier_knn33))), test.data$V25)
+
+gain_tree <- performance(gain_pred_tree, "tpr", "fpr")
+gain_lm <- performance(gain_pred_lm,"tpr","fpr")
+gain_glm <- performance(gain_pred_glm, "tpr", "fpr")
+gain_svm <- performance(gain_pred_svm, "tpr", "fpr")
+gain_nn <- performance(gain_pred_nn, "tpr", "fpr")
+gain_rf <- performance(gain_pred_rf, "tpr", "fpr")
+gain_knn <- performance(gain_pred_knn, "tpr", "fpr")
+
+par(mfrow = c(2,4))
+p1 = plot(gain_lm, col="orange", lwd=2, main = "Linear Model")
+p2 =plot(gain_tree, col = "green", lwd = 2, main = "Tree")
+p3 =plot(gain_glm, col = "blue", lwd = 2, main = "GLM")
+p4 =plot(gain_svm, col = "pink", lwd=2, main = "SVM")
+p5 =plot(gain_nn, col = "black", lwd = 2, main = "Neural Network")
+p6 =plot(gain_rf, col = "cyan", lwd = 2, main = "Random Forest")
+p7 =plot(gain_knn, col = "purple", lwd = 2, main = "KNN")
+```
+
+```{r}
+#recall = tp / tp + fn
+#harmonic mean = 1/ 1/N * sum(1/recall)
+lm_recall_f = test_confusion[1,1] / sum(test_confusion[1,])
+lm_recall_t = test_confusion[2,2] / sum(test_confusion[2,])
+hm_lm = 1/((1/2) * (1/lm_recall_f + 1/lm_recall_t))
+
+#SVM harmonic
+svm_recall_f = svm_confusion[1,1] / sum(svm_confusion[1,])
+svm_recall_t = svm_confusion[2,2] / sum(svm_confusion[2,])
+hm_svm = 1/((1/2) * (1/svm_recall_f + 1/svm_recall_t))
+
+#tree harmonic
+tree_recall_f = pred.table.tree[1,1] / sum(pred.table.tree[1,])
+tree_recall_t = pred.table.tree[2,2] / sum(pred.table.tree[2,])
+hm_tree = 1/((1/2) * (1/tree_recall_f + 1/tree_recall_t))
+
+#glm harmonic
+glm_recall_f = pred.table[1,1] / sum(pred.table[1,])
+glm_recall_t = pred.table[2,2] / sum(pred.table[2,])
+hm_glm = 1/((1/2) * (1/glm_recall_f + 1/glm_recall_t))
+
+#random forest
+rf_recall_f = rf_confusion[1,1] / sum(rf_confusion[1,])
+rf_recall_t = rf_confusion[2,2] / sum(rf_confusion[2,])
+hm_rf = 1/((1/2) * (1/rf_recall_f + 1/rf_recall_t))
+
+#neural network
+nn_recall_f = nn_confusion[1,1] / sum(nn_confusion[1,])
+nn_recall_t = nn_confusion[2,2] / sum(nn_confusion[2,])
+hm_nn = 1/((1/2) * (1/nn_recall_f + 1/nn_recall_t))
+
+
+#knn
+knn_recall_f = pred.table.knn[1,1] / sum(pred.table.knn[1,])
+knn_recall_t = pred.table.knn[2,2] / sum(pred.table.knn[2,])
+hm_knn = 1/((1/2) * (1/knn_recall_f + 1/knn_recall_t))
+
+hm_glm
+hm_tree
+hm_svm
+hm_lm
+hm_knn
+hm_rf
+hm_nn
+```
